@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       { 
         $setOnInsert: { email, uid, isProfileComplete: false } 
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     return NextResponse.json({ success: true, user });

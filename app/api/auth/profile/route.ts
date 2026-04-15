@@ -26,7 +26,7 @@ export async function POST(req: Request) {
           isProfileComplete: true
         }
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     return NextResponse.json({ success: true, user });
