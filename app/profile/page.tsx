@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { app } from "@/lib/firebase";
-import { CldUploadWidget } from "next-cloudinary";
 
 import {
     Card,
@@ -44,6 +43,45 @@ export default function ProfilePage() {
     const [profilePic, setProfilePic] = useState("");
     const [loadingAuth, setLoadingAuth] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const timestamp = Math.round((new Date).getTime() / 1000);
+            const res = await fetch("/api/cloudinary/sign", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ paramsToSign: { timestamp } })
+            });
+            const { signature } = await res.json();
+
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("api_key", process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY!);
+            formData.append("timestamp", timestamp.toString());
+            formData.append("signature", signature);
+
+            const uploadRes = await fetch(
+                `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, 
+                { method: "POST", body: formData }
+            );
+
+            const data = await uploadRes.json();
+            if(data.secure_url) {
+                setProfilePic(data.secure_url);
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            alert("Failed to upload image.");
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const {
         register,
@@ -155,20 +193,22 @@ export default function ProfilePage() {
                                     <AvatarFallback className="bg-zinc-100 text-zinc-400">Pic</AvatarFallback>
                                 </Avatar>
                                 
-                                <CldUploadWidget 
-                                    signatureEndpoint="/api/cloudinary/sign"
-                                    onSuccess={(result) => {
-                                        if (result.info && typeof result.info === 'object' && result.info.secure_url) {
-                                            setProfilePic(result.info.secure_url);
-                                        }
-                                    }}
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    onChange={handleFileUpload} 
+                                />
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading}
                                 >
-                                    {({ open }) => (
-                                        <Button type="button" variant="outline" size="sm" onClick={() => open()}>
-                                            Upload Photo
-                                        </Button>
-                                    )}
-                                </CldUploadWidget>
+                                    {isUploading ? "Uploading..." : "Upload Photo"}
+                                </Button>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
