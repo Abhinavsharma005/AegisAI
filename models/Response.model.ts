@@ -27,6 +27,5 @@ const summarySchema = new mongoose.Schema({
   timestamps: true
 });
 
-const summaryModel = mongoose.model("Summary", summarySchema);
-
-export default summaryModel;
+const Summary = mongoose.models.Summary || mongoose.model("Summary", summarySchema);
+export default Summary;

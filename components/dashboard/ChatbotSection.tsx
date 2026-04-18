@@ -68,10 +68,30 @@ export default function ChatbotSection({ userRecord, uid }: ChatbotSectionProps)
     { text: "Would you like to discuss your next steps or options?", icon: <Heart className="w-4 h-4 text-rose-500" /> },
   ];
 
+  const saveMessageToDb = async (msg: Message) => {
+    try {
+      await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid,
+          message: msg.message,
+          sender: msg.sender,
+          timestamp: msg.timestamp
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to save message to DB:", err);
+    }
+  };
+
   const handleSend = async (text: string) => {
     if (!text.trim()) return;
 
     const userMsg: Message = { sender: "user", message: text, timestamp: new Date() };
+    
+    // Save to DB (Fire and forget)
+    saveMessageToDb(userMsg);
     
     setChatSessions((prev) => prev.map(chat => {
       if (chat.id === activeChatId) {
@@ -129,9 +149,26 @@ export default function ChatbotSection({ userRecord, uid }: ChatbotSectionProps)
         timestamp: new Date() 
       };
 
+      // Save bot response to DB
+      saveMessageToDb(botMsg);
+
       setChatSessions((prev) => prev.map(chat => 
         chat.id === activeChatId ? { ...chat, messages: [...chat.messages, botMsg] } : chat
       ));
+
+      // Save Analysis results to Summary model
+      if (data.stress_score !== undefined) {
+        fetch("/api/chat/analysis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            uid,
+            aiResponse: data.response,
+            stressLevel: data.risk || "low",
+            legalAdvice: "Analysis based on stress risk level: " + (data.risk || "low")
+          }),
+        }).catch(err => console.error("Failed to save analysis:", err));
+      }
 
       // Optional: Handle stress_score or emotions here if needed for parent state
       console.log("Chat Analysis:", { 
@@ -143,14 +180,18 @@ export default function ChatbotSection({ userRecord, uid }: ChatbotSectionProps)
     } catch (error: any) {
       console.error("Chatbot Error:", error);
       
-      // Attempt to "rescue" the AI response if the backend failed to parse it
       let rescuedMessage = "I encountered an error connecting to my safety service. Please try again soon.";
       
       const errorStr = error.toString();
-      if (errorStr.includes("AI returned malformed JSON") && errorStr.includes("model response:")) {
+
+      // Handle rate limiting errors with a friendly message
+      if (errorStr.includes("RESOURCE_EXHAUSTED") || errorStr.includes("429")) {
+        rescuedMessage = "⏳ The AI service has reached its daily request limit. Please try again later or ask your admin to upgrade the API plan.";
+      }
+      // Attempt to "rescue" the AI response if the backend failed to parse it
+      else if (errorStr.includes("AI returned malformed JSON") && errorStr.includes("model response:")) {
         const parts = errorStr.split("model response:");
         if (parts.length > 1) {
-          // Clean up the extracted text: remove newlines, extreme whitespace, and JSON characters
           rescuedMessage = parts[1].trim()
             .replace(/\\n/g, ' ')
             .replace(/^"/, '')
@@ -174,6 +215,37 @@ export default function ChatbotSection({ userRecord, uid }: ChatbotSectionProps)
       setIsTyping(false);
     }
   };
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!uid) return;
+      try {
+        const res = await fetch(`/api/chat?uid=${uid}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.messages && data.messages.length > 0) {
+            // Map MongoDB messages to internal Message format
+            const mappedMessages: Message[] = data.messages.map((m: any) => ({
+              sender: m.sender,
+              message: m.message,
+              timestamp: new Date(m.timestamp)
+            }));
+            
+            setChatSessions([{ 
+              id: '1', 
+              title: 'Saved History', 
+              messages: mappedMessages 
+            }]);
+            setActiveChatId('1');
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch chat history:", err);
+      }
+    };
+    
+    fetchHistory();
+  }, [uid]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
