@@ -20,6 +20,7 @@ import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import EvidenceSection from "@/components/dashboard/EvidenceSection";
 import ChatbotSection from "@/components/dashboard/ChatbotSection";
+import StressMeter from "@/components/dashboard/StressMeter";
 
 interface UserRecord {
     name?: string;
@@ -158,8 +159,9 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex justify-center flex-1">
-                        <TabsList className="grid grid-cols-2 w-full max-w-xs h-10 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full p-1 shadow-sm">
+                        <TabsList className="grid grid-cols-3 w-full max-w-xs h-10 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full p-1 shadow-sm">
                             <TabsTrigger value="evidence" className="rounded-full data-active:!bg-[#B21563] data-active:!text-white hover:text-[#B21563] transition-all text-sm font-medium">Evidence</TabsTrigger>
+                            <TabsTrigger value="stress" className="rounded-full data-active:!bg-[#B21563] data-active:!text-white hover:text-[#B21563] transition-all text-sm font-medium">stress</TabsTrigger>
                             <TabsTrigger value="chatbot" className="rounded-full data-active:!bg-[#B21563] data-active:!text-white hover:text-[#B21563] transition-all text-sm font-medium">Chatbot</TabsTrigger>
                         </TabsList>
                     </div>
@@ -185,6 +187,9 @@ export default function DashboardPage() {
                 <main className="flex-1 w-full p-4 mx-auto">
                         <TabsContent value="evidence" className="mt-0 h-full focus-visible:outline-none focus-visible:ring-0">
                             <EvidenceSection />
+                        </TabsContent>
+                        <TabsContent value="stress" className="mt-0 h-full focus-visible:outline-none focus-visible:ring-0">
+                            <StressMeter />
                         </TabsContent>
                         
                         <TabsContent value="chatbot" className="mt-0 h-full focus-visible:outline-none focus-visible:ring-0">
